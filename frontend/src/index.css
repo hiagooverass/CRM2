@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* Force light theme colors */
+  color: #1f2937;
+  background-color: #f9fafb;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  display: block;
+  min-width: 320px;
+  min-height: 100vh;
+  color: #1f2937;
+  background-color: #f9fafb;
+}
+
+/* Ensure inputs and buttons have visible text */
+input, select, textarea, button {
+  color: inherit;
+  font-family: inherit;
+}
+
+/* Base link color */
+a {
+  font-weight: 500;
+  color: #2563eb;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #1d4ed8;
+}
+
+/* Standard focus styles */
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}

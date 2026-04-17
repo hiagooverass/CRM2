@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("USER") // USER, ADMIN
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  logs      Log[]
+}
+
+model Client {
+  id             String   @id @default(uuid())
+  type           String   // PF, PJ
+  name           String
+  document       String   @unique // CPF or CNPJ
+  email          String?
+  phone          String?
+  address        String?
+  
+  // PF fields
+  birthDate      DateTime?
+  
+  // PJ fields (from CNPJa integration)
+  tradingName    String?  // Nome Fantasia
+  legalNature    String?
+  foundationDate DateTime?
+  
+  // Credit Score
+  score          Int      @default(0)
+  classification String   @default("BAIXO") // BAIXO, MEDIO, ALTO, BLOQUEADO
+  scoreReasons   String?  // JSON string or comma separated
+  
+  contracts      Contract[]
+  billings       Billing[]
+  documents      Document[]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Contract {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  value       Float
+  status      String   @default("PENDENTE") // PENDENTE, APROVADO, REPROVADO, FINALIZADO
+  startDate   DateTime @default(now())
+  endDate     DateTime?
+  billings    Billing[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Billing {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id])
+  contractId  String?
+  contract    Contract? @relation(fields: [contractId], references: [id])
+  amount      Float
+  dueDate     DateTime
+  paidDate    DateTime?
+  status      String   @default("PENDENTE") // PENDENTE, PAGO, ATRASADO, CANCELADO
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  type      String   // RG, CPF, COMPROVANTE_RESIDENCIA, CONTRATO_SOCIAL
+  url       String
+  createdAt DateTime @default(now())
+}
+
+model Log {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  module    String
+  details   String?
+  createdAt DateTime @default(now())
+}
