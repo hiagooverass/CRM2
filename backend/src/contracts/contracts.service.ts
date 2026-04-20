@@ -15,6 +15,27 @@ export class ContractsService {
       throw new NotFoundException('Client not found');
     }
 
+    // Date validation: Start and End dates must be today or in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (dto.startDate) {
+      const startDate = new Date(dto.startDate);
+      if (startDate < today) {
+        throw new BadRequestException('A data de início não pode ser anterior a hoje');
+      }
+    }
+
+    if (dto.endDate) {
+      const endDate = new Date(dto.endDate);
+      if (endDate < today) {
+        throw new BadRequestException('A data de vencimento não pode ser anterior a hoje');
+      }
+      if (dto.startDate && endDate < new Date(dto.startDate)) {
+        throw new BadRequestException('A data de vencimento não pode ser anterior à data de início');
+      }
+    }
+
     // Rule: Score defines approval
     let status = 'PENDENTE';
     if (client.classification === 'BLOQUEADO' || client.score < 30) {
