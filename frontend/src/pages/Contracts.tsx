@@ -22,6 +22,7 @@ interface Contract {
 }
 
 const Contracts: React.FC = () => {
+  const today = new Date().toISOString().split('T')[0];
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [clients, setClients] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +30,7 @@ const Contracts: React.FC = () => {
   const [formData, setFormData] = useState({
     clientId: '',
     value: '' as string | number,
-    startDate: new Date().toISOString().split('T')[0],
+    startDate: today,
     endDate: ''
   });
 
@@ -194,6 +195,7 @@ const Contracts: React.FC = () => {
                   <input
                     required
                     type="date"
+                    min={today}
                     value={formData.startDate}
                     onChange={e => setFormData({...formData, startDate: e.target.value})}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
@@ -203,6 +205,7 @@ const Contracts: React.FC = () => {
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Data Fim (Opcional)</label>
                   <input
                     type="date"
+                    min={formData.startDate || today}
                     value={formData.endDate}
                     onChange={e => setFormData({...formData, endDate: e.target.value})}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
