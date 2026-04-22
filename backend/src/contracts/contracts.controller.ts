@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, UseGuards, Request } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -13,25 +13,25 @@ export class ContractsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new contract' })
-  create(@Body() createContractDto: CreateContractDto) {
-    return this.contractsService.create(createContractDto);
+  create(@Request() req, @Body() createContractDto: CreateContractDto) {
+    return this.contractsService.create(req.user.id, createContractDto);
   }
 
   @Get()
   @ApiOperation({ summary: 'List all contracts' })
-  findAll() {
-    return this.contractsService.findAll();
+  findAll(@Request() req) {
+    return this.contractsService.findAll(req.user.id);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get contract details' })
-  findOne(@Param('id') id: string) {
-    return this.contractsService.findOne(id);
+  findOne(@Request() req, @Param('id') id: string) {
+    return this.contractsService.findOne(req.user.id, id);
   }
 
   @Patch(':id/status')
   @ApiOperation({ summary: 'Update contract status' })
-  updateStatus(@Param('id') id: string, @Body('status') status: string) {
-    return this.contractsService.updateStatus(id, status);
+  updateStatus(@Request() req, @Param('id') id: string, @Body('status') status: string) {
+    return this.contractsService.updateStatus(req.user.id, id, status);
   }
 }

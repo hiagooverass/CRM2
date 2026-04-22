@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, UseGuards, Request } from '@nestjs/common';
 import { BillingsService } from './billings.service';
 import { CreateBillingDto } from './dto/create-billing.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -13,25 +13,25 @@ export class BillingsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new billing' })
-  create(@Body() createBillingDto: CreateBillingDto) {
-    return this.billingsService.create(createBillingDto);
+  create(@Request() req, @Body() createBillingDto: CreateBillingDto) {
+    return this.billingsService.create(req.user.id, createBillingDto);
   }
 
   @Get()
   @ApiOperation({ summary: 'List all billings' })
-  findAll() {
-    return this.billingsService.findAll();
+  findAll(@Request() req) {
+    return this.billingsService.findAll(req.user.id);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get billing details' })
-  findOne(@Param('id') id: string) {
-    return this.billingsService.findOne(id);
+  findOne(@Request() req, @Param('id') id: string) {
+    return this.billingsService.findOne(req.user.id, id);
   }
 
   @Patch(':id/pay')
   @ApiOperation({ summary: 'Mark billing as paid' })
-  markAsPaid(@Param('id') id: string) {
-    return this.billingsService.markAsPaid(id);
+  markAsPaid(@Request() req, @Param('id') id: string) {
+    return this.billingsService.markAsPaid(req.user.id, id);
   }
 }

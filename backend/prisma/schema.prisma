@@ -7,89 +7,105 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      String   @default("USER") // USER, ADMIN
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  logs      Log[]
+model billing {
+  id         String    @id @default(uuid())
+  clientId   String
+  contractId String?
+  amount     Float
+  dueDate    DateTime
+  paidDate   DateTime?
+  status     String    @default("PENDENTE")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  userId     String?
+  client     client    @relation(fields: [clientId], references: [id], map: "Billing_clientId_fkey")
+  contract   contract? @relation(fields: [contractId], references: [id], map: "Billing_contractId_fkey")
+  user       user?     @relation(fields: [userId], references: [id], map: "Billing_userId_fkey")
+
+  @@index([clientId], map: "Billing_clientId_fkey")
+  @@index([contractId], map: "Billing_contractId_fkey")
+  @@index([userId], map: "Billing_userId_fkey")
 }
 
-model Client {
-  id             String   @id @default(uuid())
-  type           String   // PF, PJ
+model client {
+  id             String     @id @default(uuid())
+  type           String
   name           String
-  document       String   @unique // CPF or CNPJ
+  document       String     @unique(map: "Client_document_key")
   email          String?
   phone          String?
   address        String?
-  
-  // PF fields
   birthDate      DateTime?
-  
-  // PJ fields (from CNPJa integration)
-  tradingName    String?  // Nome Fantasia
+  tradingName    String?
   legalNature    String?
   foundationDate DateTime?
-  
-  // Credit Score
-  score          Int      @default(0)
-  classification String   @default("BAIXO") // BAIXO, MEDIO, ALTO, BLOQUEADO
-  scoreReasons   String?  // JSON string or comma separated
-  
-  contracts      Contract[]
-  billings       Billing[]
-  documents      Document[]
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  score          Int        @default(0)
+  classification String     @default("BAIXO")
+  scoreReasons   String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  userId         String?
+  billing        billing[]
+  user           user?      @relation(fields: [userId], references: [id], map: "Client_userId_fkey")
+  contract       contract[]
+  documents      document[]
+
+  @@index([userId], map: "Client_userId_fkey")
 }
 
-model Contract {
-  id          String   @id @default(uuid())
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id])
-  value       Float
-  status      String   @default("PENDENTE") // PENDENTE, APROVADO, REPROVADO, FINALIZADO
-  startDate   DateTime @default(now())
-  endDate     DateTime?
-  billings    Billing[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model contract {
+  id        String    @id @default(uuid())
+  clientId  String
+  value     Float
+  status    String    @default("PENDENTE")
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  userId    String?
+  billing   billing[]
+  client    client    @relation(fields: [clientId], references: [id], map: "Contract_clientId_fkey")
+  user      user?     @relation(fields: [userId], references: [id], map: "Contract_userId_fkey")
+
+  @@index([clientId], map: "Contract_clientId_fkey")
+  @@index([userId], map: "Contract_userId_fkey")
 }
 
-model Billing {
-  id          String   @id @default(uuid())
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id])
-  contractId  String?
-  contract    Contract? @relation(fields: [contractId], references: [id])
-  amount      Float
-  dueDate     DateTime
-  paidDate    DateTime?
-  status      String   @default("PENDENTE") // PENDENTE, PAGO, ATRASADO, CANCELADO
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Document {
+model document {
   id        String   @id @default(uuid())
   clientId  String
-  client    Client   @relation(fields: [clientId], references: [id])
-  type      String   // RG, CPF, COMPROVANTE_RESIDENCIA, CONTRATO_SOCIAL
+  type      String
   url       String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  client    client   @relation(fields: [clientId], references: [id], map: "Document_clientId_fkey")
+
+  @@index([clientId], map: "Document_clientId_fkey")
 }
 
-model Log {
+model log {
   id        String   @id @default(uuid())
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
   action    String
   module    String
   details   String?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      user?    @relation(fields: [userId], references: [id], map: "Log_userId_fkey")
+
+  @@index([userId], map: "Log_userId_fkey")
+}
+
+model user {
+  id        String     @id @default(uuid())
+  email     String     @unique(map: "User_email_key")
+  password  String
+  name      String
+  role      String     @default("USER")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  billing   billing[]
+  client    client[]
+  contract  contract[]
+  log       log[]
 }

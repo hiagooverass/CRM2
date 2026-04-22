@@ -6,13 +6,13 @@ import { CreateContractDto } from './dto/create-contract.dto';
 export class ContractsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateContractDto) {
-    const client = await this.prisma.client.findUnique({
-      where: { id: dto.clientId },
+  async create(userId: string, dto: CreateContractDto) {
+    const client = await this.prisma.client.findFirst({
+      where: { id: dto.clientId, userId },
     });
 
     if (!client) {
-      throw new NotFoundException('Client not found');
+      throw new NotFoundException('Cliente não encontrado ou não pertence ao seu usuário');
     }
 
     // Date validation: Start and End dates must be today or in the future
@@ -46,6 +46,7 @@ export class ContractsService {
 
     return this.prisma.contract.create({
       data: {
+        userId,
         clientId: dto.clientId,
         value: dto.value,
         status,
@@ -55,22 +56,23 @@ export class ContractsService {
     });
   }
 
-  async findAll() {
+  async findAll(userId: string) {
     return this.prisma.contract.findMany({
+      where: { userId },
       include: { client: true },
     });
   }
 
-  async findOne(id: string) {
-    return this.prisma.contract.findUnique({
-      where: { id },
-      include: { client: true, billings: true },
+  async findOne(userId: string, id: string) {
+    return this.prisma.contract.findFirst({
+      where: { id, userId },
+      include: { client: true, billing: true },
     });
   }
 
-  async updateStatus(id: string, status: string) {
+  async updateStatus(userId: string, id: string, status: string) {
     return this.prisma.contract.update({
-      where: { id },
+      where: { id, userId },
       data: { status },
     });
   }

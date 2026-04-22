@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, Request } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -12,7 +12,7 @@ export class DashboardController {
 
   @Get()
   @ApiOperation({ summary: 'Get analytical dashboard data' })
-  getStats() {
-    return this.dashboardService.getStats();
+  getStats(@Request() req) {
+    return this.dashboardService.getStats(req.user.id);
   }
 }

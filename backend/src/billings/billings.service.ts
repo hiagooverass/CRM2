@@ -9,9 +9,10 @@ export class BillingsService {
 
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateBillingDto) {
+  async create(userId: string, dto: CreateBillingDto) {
     return this.prisma.billing.create({
       data: {
+        userId,
         clientId: dto.clientId,
         contractId: dto.contractId,
         amount: dto.amount,
@@ -21,22 +22,23 @@ export class BillingsService {
     });
   }
 
-  async findAll() {
+  async findAll(userId: string) {
     return this.prisma.billing.findMany({
+      where: { userId },
       include: { client: true, contract: true },
     });
   }
 
-  async findOne(id: string) {
-    return this.prisma.billing.findUnique({
-      where: { id },
+  async findOne(userId: string, id: string) {
+    return this.prisma.billing.findFirst({
+      where: { id, userId },
       include: { client: true, contract: true },
     });
   }
 
-  async markAsPaid(id: string) {
+  async markAsPaid(userId: string, id: string) {
     return this.prisma.billing.update({
-      where: { id },
+      where: { id, userId },
       data: {
         status: 'PAGO',
         paidDate: new Date(),

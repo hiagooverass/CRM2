@@ -16,6 +16,20 @@ export class RegisterDto {
   name: string;
 }
 
+export class UpdateProfileDto {
+  @ApiProperty({ example: 'John Doe', required: false })
+  @IsNotEmpty()
+  name?: string;
+
+  @ApiProperty({ example: 'user@example.com', required: false })
+  @IsEmail()
+  email?: string;
+
+  @ApiProperty({ example: 'newpassword123', required: false })
+  @MinLength(6)
+  password?: string;
+}
+
 export class LoginDto {
   @ApiProperty({ example: 'user@example.com' })
   @IsEmail()

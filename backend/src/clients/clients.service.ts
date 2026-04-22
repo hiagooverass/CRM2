@@ -12,16 +12,16 @@ export class ClientsService {
     private configService: ConfigService,
   ) {}
 
-  async create(dto: CreateClientDto) {
+  async create(userId: string, dto: CreateClientDto) {
     // 1. Validate Document
     this.validateDocument(dto.type, dto.document);
 
-    // 2. Check for Duplicity
-    const existing = await this.prisma.client.findUnique({
-      where: { document: dto.document },
+    // 2. Check for Duplicity (within user scope or globally? User scope makes more sense for multi-tenant)
+    const existing = await this.prisma.client.findFirst({
+      where: { document: dto.document, userId },
     });
     if (existing) {
-      throw new ConflictException('Client with this document already exists');
+      throw new ConflictException('Você já possui um cliente cadastrado com este documento');
     }
 
     let extraData = {};
@@ -39,6 +39,7 @@ export class ClientsService {
       data: {
         ...dto,
         ...extraData,
+        userId,
         birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
         foundationDate: dto.foundationDate ? new Date(dto.foundationDate) : (extraData as any).foundationDate,
         score: scoreData.score,
@@ -99,29 +100,31 @@ export class ClientsService {
     }
   }
 
-  async findAll() {
+  async findAll(userId: string) {
     return this.prisma.client.findMany({
+      where: { userId },
       include: {
-        contracts: true,
-        billings: true,
+        contract: true,
+        billing: true,
       },
     });
   }
 
-  async findOne(id: string) {
-    return this.prisma.client.findUnique({
-      where: { id },
+  async findOne(userId: string, id: string) {
+    return this.prisma.client.findFirst({
+      where: { id, userId },
       include: {
-        contracts: true,
-        billings: true,
+        contract: true,
+        billing: true,
         documents: true,
       },
     });
   }
 
-  async search(query: string) {
+  async search(userId: string, query: string) {
     return this.prisma.client.findMany({
       where: {
+        userId,
         OR: [
           { name: { contains: query } },
           { document: { contains: query } },
@@ -131,9 +134,9 @@ export class ClientsService {
     });
   }
 
-  async update(id: string, dto: any) {
+  async update(userId: string, id: string, dto: any) {
     return this.prisma.client.update({
-      where: { id },
+      where: { id, userId },
       data: {
         ...dto,
         birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
@@ -142,9 +145,9 @@ export class ClientsService {
     });
   }
 
-  async remove(id: string) {
+  async remove(userId: string, id: string) {
     return this.prisma.client.delete({
-      where: { id },
+      where: { id, userId },
     });
   }
 
