@@ -19,20 +19,30 @@ export class ContractsService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const normalizeDate = (dateStr: string) => {
+      const d = new Date(dateStr);
+      // Use the actual date from the string regardless of timezone
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day, 0, 0, 0, 0);
+    };
+
     if (dto.startDate) {
-      const startDate = new Date(dto.startDate);
+      const startDate = normalizeDate(dto.startDate);
       if (startDate < today) {
         throw new BadRequestException('A data de início não pode ser anterior a hoje');
       }
     }
 
     if (dto.endDate) {
-      const endDate = new Date(dto.endDate);
+      const endDate = normalizeDate(dto.endDate);
       if (endDate < today) {
         throw new BadRequestException('A data de vencimento não pode ser anterior a hoje');
       }
-      if (dto.startDate && endDate < new Date(dto.startDate)) {
-        throw new BadRequestException('A data de vencimento não pode ser anterior à data de início');
+      if (dto.startDate) {
+        const startDate = normalizeDate(dto.startDate);
+        if (endDate < startDate) {
+          throw new BadRequestException('A data de vencimento não pode ser anterior à data de início');
+        }
       }
     }
 
@@ -50,8 +60,8 @@ export class ContractsService {
         clientId: dto.clientId,
         value: dto.value,
         status,
-        startDate: dto.startDate ? new Date(dto.startDate) : new Date(),
-        endDate: dto.endDate ? new Date(dto.endDate) : null,
+        startDate: dto.startDate ? normalizeDate(dto.startDate) : new Date(),
+        endDate: dto.endDate ? normalizeDate(dto.endDate) : null,
       },
     });
   }
