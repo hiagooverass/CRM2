@@ -76,9 +76,10 @@ const Contracts: React.FC = () => {
       setIsModalOpen(false);
       setFormData({ clientId: '', value: '', startDate: new Date().toISOString().split('T')[0], endDate: '' });
       fetchContracts();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Erro ao criar contrato. Verifique o score do cliente.');
+      const message = err.response?.data?.message || 'Erro ao criar contrato. Verifique os dados.';
+      alert(message);
     }
   };
 
