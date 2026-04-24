@@ -29,6 +29,12 @@ export class ClientsController {
     return this.clientsService.search(req.user.id, query);
   }
 
+  @Get('cnpj/:cnpj')
+  @ApiOperation({ summary: 'Fetch CNPJ data' })
+  fetchCNPJ(@Param('cnpj') cnpj: string) {
+    return this.clientsService.fetchCNPJDataPublic(cnpj);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get client details' })
   findOne(@Request() req, @Param('id') id: string) {

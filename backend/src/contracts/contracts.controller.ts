@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards, Request } from '@nestjs/common';
 import { ContractsService } from './contracts.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -33,5 +33,17 @@ export class ContractsController {
   @ApiOperation({ summary: 'Update contract status' })
   updateStatus(@Request() req, @Param('id') id: string, @Body('status') status: string) {
     return this.contractsService.updateStatus(req.user.id, id, status);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update contract' })
+  update(@Request() req, @Param('id') id: string, @Body() updateContractDto: Partial<CreateContractDto>) {
+    return this.contractsService.update(req.user.id, id, updateContractDto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete contract' })
+  remove(@Request() req, @Param('id') id: string) {
+    return this.contractsService.remove(req.user.id, id);
   }
 }

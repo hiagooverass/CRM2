@@ -86,4 +86,42 @@ export class ContractsService {
       data: { status },
     });
   }
+
+  async update(userId: string, id: string, dto: Partial<CreateContractDto>) {
+    const contract = await this.prisma.contract.findFirst({
+      where: { id, userId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contrato não encontrado');
+    }
+
+    const normalizeDate = (dateStr: string) => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day, 0, 0, 0, 0);
+    };
+
+    const data: any = { ...dto };
+    if (dto.startDate) data.startDate = normalizeDate(dto.startDate);
+    if (dto.endDate) data.endDate = normalizeDate(dto.endDate);
+
+    return this.prisma.contract.update({
+      where: { id, userId },
+      data,
+    });
+  }
+
+  async remove(userId: string, id: string) {
+    const contract = await this.prisma.contract.findFirst({
+      where: { id, userId },
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contrato não encontrado');
+    }
+
+    return this.prisma.contract.delete({
+      where: { id, userId },
+    });
+  }
 }

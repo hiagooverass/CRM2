@@ -64,24 +64,55 @@ export class ClientsService {
     const apiKey = this.configService.get('CNPJA_API_KEY');
     
     if (!apiKey) {
-      return {}; // Skip if no API key
+      console.log('CNPJA_API_KEY not found in environment');
+      return {}; 
     }
 
     try {
       const response = await axios.get(`https://api.cnpja.com.br/companies/${cleanDoc}`, {
-        headers: { Authorization: apiKey },
+        headers: { 'Authorization': apiKey },
       });
       
       const data = response.data;
+      
+      // Concatenate address if components exist
+      let address = '';
+      let street = '';
+      let number = '';
+      let neighborhood = '';
+      let cep = '';
+
+      if (data.address) {
+        const addr = data.address;
+        street = addr.street;
+        number = addr.number;
+        neighborhood = addr.neighborhood;
+        cep = addr.zip;
+        address = `${addr.street}, ${addr.number}${addr.details ? ' - ' + addr.details : ''}, ${addr.neighborhood}, ${addr.city} - ${addr.state}, ${addr.zip}`;
+      }
+
       return {
+        name: data.name, // Official Razão Social
         tradingName: data.alias || data.name,
         legalNature: data.nature?.text,
         foundationDate: data.founded ? new Date(data.founded) : null,
+        address: address || undefined,
+        email: data.email || undefined,
+        phone: data.phone || undefined,
+        // Detailed fields for public fetch
+        street,
+        number,
+        neighborhood,
+        cep
       };
     } catch (error) {
-      console.error('Error fetching CNPJa data:', error.message);
-      return {}; // Return empty if API fails
+      console.error('Error fetching CNPJa data:', error.response?.data || error.message);
+      return {}; 
     }
+  }
+
+  async fetchCNPJDataPublic(cnpj: string) {
+    return this.fetchCNPJData(cnpj);
   }
 
   private calculateInitialScore(dto: CreateClientDto) {
@@ -150,7 +181,7 @@ export class ClientsService {
       where: { id, userId },
     });
   }
-
+  
   async uploadDocument(clientId: string, type: string, file: Express.Multer.File) {
     return this.prisma.document.create({
       data: {
