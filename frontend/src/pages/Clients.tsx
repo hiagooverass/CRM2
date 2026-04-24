@@ -39,12 +39,53 @@ const Clients: React.FC = () => {
     type: 'PF' as 'PF' | 'PJ',
     email: '',
     phone: '',
-    address: ''
+    street: '',
+    number: '',
+    neighborhood: '',
+    cep: '',
+    address: '' // Keep for backend compatibility
   });
+
+  const [isFetchingCNPJ, setIsFetchingCNPJ] = useState(false);
 
   useEffect(() => {
     fetchClients();
   }, []);
+
+  // Auto-fetch CNPJ
+  useEffect(() => {
+    const fetchCNPJ = async () => {
+      const cleanCNPJ = formData.document.replace(/\D/g, '');
+      if (formData.type === 'PJ' && cleanCNPJ.length === 14 && !editingClient) {
+        setIsFetchingCNPJ(true);
+        try {
+          const response = await api.get(`/clients/cnpj/${cleanCNPJ}`);
+          const data = response.data;
+          
+          if (data.name) {
+            setFormData(prev => ({
+              ...prev,
+              name: data.name || prev.name,
+              email: data.email || prev.email,
+              phone: data.phone || prev.phone,
+              street: data.street || prev.street,
+              number: data.number || prev.number,
+              neighborhood: data.neighborhood || prev.neighborhood,
+              cep: data.cep || prev.cep,
+              address: data.address || prev.address
+            }));
+          }
+        } catch (err) {
+          console.error('Erro ao buscar CNPJ:', err);
+        } finally {
+          setIsFetchingCNPJ(false);
+        }
+      }
+    };
+
+    const timer = setTimeout(fetchCNPJ, 500);
+    return () => clearTimeout(timer);
+  }, [formData.document, formData.type, editingClient]);
 
   const fetchClients = async () => {
     try {
@@ -73,12 +114,33 @@ const Clients: React.FC = () => {
 
   const handleEdit = (client: Client) => {
     setEditingClient(client);
+    
+    // Simple attempt to parse address
+    let street = '';
+    let number = '';
+    let neighborhood = '';
+    let cep = '';
+
+    if (client.address) {
+      const parts = client.address.split(',').map(p => p.trim());
+      street = parts[0] || '';
+      if (parts[1]) {
+        const numParts = parts[1].split('-').map(p => p.trim());
+        number = numParts[0] || '';
+      }
+      neighborhood = parts[2] || '';
+    }
+
     setFormData({
       name: client.name,
       document: client.document,
       type: client.type,
       email: client.email || '',
       phone: client.phone || '',
+      street,
+      number,
+      neighborhood,
+      cep,
       address: client.address || ''
     });
     setIsModalOpen(true);
@@ -99,15 +161,32 @@ const Clients: React.FC = () => {
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Combine address fields
+    const fullAddress = [
+      formData.street,
+      formData.number,
+      formData.neighborhood,
+      formData.cep
+    ].filter(Boolean).join(', ');
+
+    // Filter out UI-only fields from the payload
+    const { street, number, neighborhood, cep, ...rest } = formData;
+
+    const payload = {
+      ...rest,
+      address: fullAddress || formData.address
+    };
+
     try {
       if (editingClient) {
-        await api.patch(`/clients/${editingClient.id}`, formData);
+        await api.patch(`/clients/${editingClient.id}`, payload);
       } else {
-        await api.post('/clients', formData);
+        await api.post('/clients', payload);
       }
       setIsModalOpen(false);
       setEditingClient(null);
-      setFormData({ name: '', document: '', type: 'PF', email: '', phone: '', address: '' });
+      setFormData({ name: '', document: '', type: 'PF', email: '', phone: '', street: '', number: '', neighborhood: '', cep: '', address: '' });
       fetchClients();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Erro ao salvar cliente. Verifique os dados.');
@@ -116,7 +195,7 @@ const Clients: React.FC = () => {
 
   const openNewClientModal = () => {
     setEditingClient(null);
-    setFormData({ name: '', document: '', type: 'PF', email: '', phone: '', address: '' });
+    setFormData({ name: '', document: '', type: 'PF', email: '', phone: '', street: '', number: '', neighborhood: '', cep: '', address: '' });
     setIsModalOpen(true);
   };
 
@@ -261,18 +340,6 @@ const Clients: React.FC = () => {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Nome / Razão Social</label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.name}
-                    onChange={e => setFormData({...formData, name: e.target.value})}
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
-                    placeholder="Ex: João Silva ou Empresa LTDA"
-                  />
-                </div>
-                
-                <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Tipo</label>
                   <select
                     value={formData.type}
@@ -283,9 +350,12 @@ const Clients: React.FC = () => {
                     <option value="PJ">Pessoa Jurídica (CNPJ)</option>
                   </select>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">{formData.type === 'PF' ? 'CPF' : 'CNPJ'}</label>
+
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    {formData.type === 'PF' ? 'CPF' : 'CNPJ'}
+                    {isFetchingCNPJ && <span className="ml-2 text-blue-600 text-xs animate-pulse">Buscando dados...</span>}
+                  </label>
                   <input
                     required
                     type="text"
@@ -293,6 +363,18 @@ const Clients: React.FC = () => {
                     onChange={e => setFormData({...formData, document: e.target.value})}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
                     placeholder="Apenas números"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Nome / Razão Social</label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.name}
+                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                    placeholder="Ex: João Silva ou Empresa LTDA"
                   />
                 </div>
                 
@@ -318,15 +400,47 @@ const Clients: React.FC = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Endereço</label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={e => setFormData({...formData, address: e.target.value})}
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
-                    placeholder="Rua, Número, Bairro"
-                  />
+                <div className="col-span-2 grid grid-cols-4 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Rua</label>
+                    <input
+                      type="text"
+                      value={formData.street}
+                      onChange={e => setFormData({...formData, street: e.target.value})}
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                      placeholder="Nome da rua"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Número</label>
+                    <input
+                      type="text"
+                      value={formData.number}
+                      onChange={e => setFormData({...formData, number: e.target.value})}
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                      placeholder="123"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">CEP</label>
+                    <input
+                      type="text"
+                      value={formData.cep}
+                      onChange={e => setFormData({...formData, cep: e.target.value})}
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                      placeholder="00000-000"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Bairro</label>
+                    <input
+                      type="text"
+                      value={formData.neighborhood}
+                      onChange={e => setFormData({...formData, neighborhood: e.target.value})}
+                      className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                      placeholder="Nome do bairro"
+                    />
+                  </div>
                 </div>
               </div>
 

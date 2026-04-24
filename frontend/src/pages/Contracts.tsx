@@ -7,11 +7,14 @@ import {
   XCircle, 
   Clock,
   User,
-  X
+  X,
+  Edit2,
+  Trash2
 } from 'lucide-react';
 
 interface Contract {
   id: string;
+  clientId: string;
   value: number;
   status: string;
   startDate: string;
@@ -27,6 +30,7 @@ const Contracts: React.FC = () => {
   const [clients, setClients] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [formData, setFormData] = useState({
     clientId: '',
     value: '' as string | number,
@@ -59,6 +63,29 @@ const Contracts: React.FC = () => {
     }
   };
 
+  const handleEdit = (contract: Contract) => {
+    setEditingContract(contract);
+    setFormData({
+      clientId: contract.clientId,
+      value: contract.value,
+      startDate: contract.startDate.split('T')[0],
+      endDate: contract.endDate ? contract.endDate.split('T')[0] : ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este contrato?')) {
+      try {
+        await api.delete(`/contracts/${id}`);
+        fetchContracts();
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao excluir contrato.');
+      }
+    }
+  };
+
   const handleCreateContract = async (e: React.FormEvent) => {
     e.preventDefault();
     const val = Number(formData.value);
@@ -69,18 +96,32 @@ const Contracts: React.FC = () => {
     }
 
     try {
-      await api.post('/contracts', {
-        ...formData,
-        value: val
-      });
+      if (editingContract) {
+        await api.patch(`/contracts/${editingContract.id}`, {
+          ...formData,
+          value: val
+        });
+      } else {
+        await api.post('/contracts', {
+          ...formData,
+          value: val
+        });
+      }
       setIsModalOpen(false);
+      setEditingContract(null);
       setFormData({ clientId: '', value: '', startDate: new Date().toISOString().split('T')[0], endDate: '' });
       fetchContracts();
     } catch (err: any) {
       console.error(err);
-      const message = err.response?.data?.message || 'Erro ao criar contrato. Verifique os dados.';
+      const message = err.response?.data?.message || 'Erro ao salvar contrato. Verifique os dados.';
       alert(message);
     }
+  };
+
+  const openNewContractModal = () => {
+    setEditingContract(null);
+    setFormData({ clientId: '', value: '', startDate: new Date().toISOString().split('T')[0], endDate: '' });
+    setIsModalOpen(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -104,7 +145,7 @@ const Contracts: React.FC = () => {
           <p className="text-gray-500">Contratos de crédito e status de aprovação.</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={openNewContractModal}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors font-bold shadow-sm"
         >
           <Plus size={20} />
@@ -122,6 +163,7 @@ const Contracts: React.FC = () => {
                 <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Início</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Vencimento</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -139,6 +181,24 @@ const Contracts: React.FC = () => {
                   <td className="px-6 py-4 text-sm text-gray-700">{new Date(contract.startDate).toLocaleDateString()}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{contract.endDate ? new Date(contract.endDate).toLocaleDateString() : '-'}</td>
                   <td className="px-6 py-4">{getStatusBadge(contract.status)}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center space-x-2">
+                      <button 
+                        onClick={() => handleEdit(contract)}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Editar"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(contract.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Excluir"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -149,12 +209,12 @@ const Contracts: React.FC = () => {
         )}
       </div>
 
-      {/* Modal Novo Contrato */}
+      {/* Modal Novo/Editar Contrato */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-gray-100">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h3 className="text-xl font-bold text-gray-900">Novo Contrato</h3>
+              <h3 className="text-xl font-bold text-gray-900">{editingContract ? 'Editar Contrato' : 'Novo Contrato'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
                 <X size={24} />
               </button>
@@ -165,9 +225,10 @@ const Contracts: React.FC = () => {
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Cliente</label>
                 <select
                   required
+                  disabled={!!editingContract}
                   value={formData.clientId}
                   onChange={e => setFormData({...formData, clientId: e.target.value})}
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                  className={`w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 ${editingContract ? 'bg-gray-100 cursor-not-allowed' : 'bg-gray-50'}`}
                 >
                   <option value="">Selecione um cliente</option>
                   {clients.map(c => (
@@ -196,14 +257,14 @@ const Contracts: React.FC = () => {
                   <input
                     required
                     type="date"
-                    min={today}
+                    min={!editingContract ? today : undefined}
                     value={formData.startDate}
                     onChange={e => setFormData({...formData, startDate: e.target.value})}
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Data Fim (Opcional)</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Vencimento</label>
                   <input
                     type="date"
                     min={formData.startDate || today}
@@ -214,19 +275,19 @@ const Contracts: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-4 flex gap-3">
+              <div className="pt-4 flex space-x-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 font-semibold"
+                  className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors font-bold"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-lg shadow-blue-100"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold shadow-md shadow-blue-200"
                 >
-                  Gerar Contrato
+                  {editingContract ? 'Salvar Alterações' : 'Criar Contrato'}
                 </button>
               </div>
             </form>
