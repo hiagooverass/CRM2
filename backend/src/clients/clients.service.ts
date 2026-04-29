@@ -13,15 +13,38 @@ export class ClientsService {
   ) {}
 
   async create(userId: string, dto: CreateClientDto) {
+    console.log(`[ClientsService] Iniciando criação de cliente. userId: ${userId}`);
+    
+    if (!userId) {
+      console.error('[ClientsService] ERRO: userId não fornecido para criação');
+      throw new BadRequestException('Usuário não identificado');
+    }
+
     // 1. Validate Document
     this.validateDocument(dto.type, dto.document);
 
-    // 2. Check for Duplicity (within user scope or globally? User scope makes more sense for multi-tenant)
+    // 2. Check for Duplicity
     const existing = await this.prisma.client.findFirst({
-      where: { document: dto.document, userId },
+      where: { document: dto.document },
     });
+
     if (existing) {
-      throw new ConflictException('Você já possui um cliente cadastrado com este documento');
+      console.log(`[ClientsService] Cliente com documento ${dto.document} já existe. ID: ${existing.id}, userId atual no banco: ${existing.userId}`);
+      
+      // Se o cliente existe mas não tem userId (global), nós o associamos ao usuário atual
+      if (!existing.userId) {
+        console.log(`[ClientsService] Associando cliente global ${existing.id} ao usuário ${userId}`);
+        return this.prisma.client.update({
+          where: { id: existing.id },
+          data: { userId },
+        });
+      }
+      
+      if (existing.userId === userId) {
+        throw new ConflictException('Você já possui um cliente cadastrado com este documento');
+      } else {
+        throw new ConflictException('Este documento já está cadastrado por outro usuário');
+      }
     }
 
     let extraData = {};
@@ -35,17 +58,25 @@ export class ClientsService {
     const scoreData = this.calculateInitialScore(dto);
 
     // 5. Create Client
+    const { street, number, neighborhood, cep, ...cleanedExtraData } = extraData as any;
+    
+    const cleanedDto = Object.fromEntries(
+      Object.entries(dto).filter(([k, v]) => k !== 'userId' && v !== '' && v !== null && v !== undefined)
+    );
+
+    const createData = {
+      ...cleanedExtraData,
+      ...(cleanedDto as any),
+      userId,
+      birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
+      foundationDate: dto.foundationDate ? new Date(dto.foundationDate) : (cleanedExtraData as any).foundationDate,
+      score: scoreData.score,
+      classification: scoreData.classificacao,
+      scoreReasons: JSON.stringify(scoreData.motivos),
+    };
+
     return this.prisma.client.create({
-      data: {
-        ...dto,
-        ...extraData,
-        userId,
-        birthDate: dto.birthDate ? new Date(dto.birthDate) : null,
-        foundationDate: dto.foundationDate ? new Date(dto.foundationDate) : (extraData as any).foundationDate,
-        score: scoreData.score,
-        classification: scoreData.classificacao,
-        scoreReasons: JSON.stringify(scoreData.motivos),
-      },
+      data: createData,
     });
   }
 
@@ -133,7 +164,7 @@ export class ClientsService {
 
   async findAll(userId: string) {
     return this.prisma.client.findMany({
-      where: { userId },
+      orderBy: { createdAt: 'desc' },
       include: {
         contract: true,
         billing: true,
@@ -143,7 +174,13 @@ export class ClientsService {
 
   async findOne(userId: string, id: string) {
     return this.prisma.client.findFirst({
-      where: { id, userId },
+      where: {
+        id,
+        OR: [
+          { userId },
+          { userId: null }
+        ]
+      },
       include: {
         contract: true,
         billing: true,
@@ -155,30 +192,89 @@ export class ClientsService {
   async search(userId: string, query: string) {
     return this.prisma.client.findMany({
       where: {
-        userId,
         OR: [
-          { name: { contains: query } },
-          { document: { contains: query } },
-          { email: { contains: query } },
+          { userId },
+          { userId: null }
         ],
+        AND: [
+          {
+            OR: [
+              { name: { contains: query } },
+              { document: { contains: query } },
+              { email: { contains: query } },
+            ],
+          }
+        ]
       },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
   async update(userId: string, id: string, dto: any) {
+    const { birthDate, foundationDate, ...rest } = dto;
+    
+    // Verifica se o cliente pertence ao usuário ou é global
+    const client = await this.prisma.client.findFirst({
+      where: {
+        id,
+        OR: [
+          { userId },
+          { userId: null }
+        ]
+      }
+    });
+
+    if (!client) {
+      throw new BadRequestException('Cliente não encontrado ou você não tem permissão para editá-lo');
+    }
+
     return this.prisma.client.update({
-      where: { id, userId },
+      where: { id },
       data: {
-        ...dto,
-        birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
-        foundationDate: dto.foundationDate ? new Date(dto.foundationDate) : undefined,
+        ...rest,
+        birthDate: birthDate ? new Date(birthDate) : undefined,
+        foundationDate: foundationDate ? new Date(foundationDate) : undefined,
       },
     });
   }
 
   async remove(userId: string, id: string) {
-    return this.prisma.client.delete({
-      where: { id, userId },
+    const client = await this.prisma.client.findFirst({
+      where: {
+        id,
+        OR: [
+          { userId },
+          { userId: null }
+        ]
+      },
+      include: { contract: true, billing: true, documents: true }
+    });
+
+    if (!client) {
+      throw new BadRequestException('Cliente não encontrado ou você não tem permissão para excluí-lo');
+    }
+
+    // Use transaction to delete everything related to the client
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Delete all documents
+      await tx.document.deleteMany({
+        where: { clientId: id }
+      });
+
+      // 2. Delete all billings
+      await tx.billing.deleteMany({
+        where: { clientId: id }
+      });
+
+      // 3. Delete all contracts
+      await tx.contract.deleteMany({
+        where: { clientId: id }
+      });
+
+      // 4. Finally, delete the client
+      return tx.client.delete({
+        where: { id, userId },
+      });
     });
   }
   

@@ -24,14 +24,20 @@ export class BillingsService {
 
   async findAll(userId: string) {
     return this.prisma.billing.findMany({
-      where: { userId },
       include: { client: true, contract: true },
+      orderBy: { dueDate: 'asc' }
     });
   }
 
   async findOne(userId: string, id: string) {
     return this.prisma.billing.findFirst({
-      where: { id, userId },
+      where: {
+        id,
+        OR: [
+          { userId },
+          { userId: null }
+        ]
+      },
       include: { client: true, contract: true },
     });
   }

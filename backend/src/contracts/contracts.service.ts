@@ -8,7 +8,13 @@ export class ContractsService {
 
   async create(userId: string, dto: CreateContractDto) {
     const client = await this.prisma.client.findFirst({
-      where: { id: dto.clientId, userId },
+      where: { 
+        id: dto.clientId, 
+        OR: [
+          { userId },
+          { userId: null }
+        ]
+      },
     });
 
     if (!client) {
@@ -49,47 +55,94 @@ export class ContractsService {
     // Rule: Score defines approval
     let status = 'PENDENTE';
     if (client.classification === 'BLOQUEADO' || client.score < 30) {
-      status = 'REPROVADO';
+      throw new BadRequestException(`Contrato Reprovado: O score do cliente (${client.score}) é insuficiente para este contrato.`);
     } else if (client.score >= 70) {
       status = 'APROVADO';
     }
 
-    return this.prisma.contract.create({
-      data: {
-        userId,
-        clientId: dto.clientId,
-        value: dto.value,
-        status,
-        startDate: dto.startDate ? normalizeDate(dto.startDate) : new Date(),
-        endDate: dto.endDate ? normalizeDate(dto.endDate) : null,
-      },
+    // Use transaction to create contract and billing together
+    return this.prisma.$transaction(async (tx) => {
+      const contract = await tx.contract.create({
+        data: {
+          userId,
+          clientId: dto.clientId,
+          value: dto.value,
+          status,
+          startDate: dto.startDate ? normalizeDate(dto.startDate) : new Date(),
+          endDate: dto.endDate ? normalizeDate(dto.endDate) : null,
+        },
+      });
+
+      // Automatically create a billing for the contract
+      await tx.billing.create({
+        data: {
+          userId,
+          clientId: dto.clientId,
+          contractId: contract.id,
+          amount: dto.value,
+          dueDate: dto.endDate ? normalizeDate(dto.endDate) : new Date(),
+          status: 'PENDENTE',
+        },
+      });
+
+      return contract;
     });
   }
 
   async findAll(userId: string) {
     return this.prisma.contract.findMany({
-      where: { userId },
-      include: { client: true },
+      include: { 
+        client: true,
+        billing: true
+      },
+      orderBy: { createdAt: 'desc' }
     });
   }
 
   async findOne(userId: string, id: string) {
     return this.prisma.contract.findFirst({
-      where: { id, userId },
+      where: {
+        id,
+        OR: [
+          { userId },
+          { userId: null }
+        ]
+      },
       include: { client: true, billing: true },
     });
   }
 
   async updateStatus(userId: string, id: string, status: string) {
+    // Check permission
+    const contract = await this.prisma.contract.findFirst({
+      where: {
+        id,
+        OR: [
+          { userId },
+          { userId: null }
+        ]
+      }
+    });
+
+    if (!contract) {
+      throw new NotFoundException('Contrato não encontrado');
+    }
+
     return this.prisma.contract.update({
-      where: { id, userId },
+      where: { id },
       data: { status },
     });
   }
 
   async update(userId: string, id: string, dto: Partial<CreateContractDto>) {
     const contract = await this.prisma.contract.findFirst({
-      where: { id, userId },
+      where: {
+        id,
+        OR: [
+          { userId },
+          { userId: null }
+        ]
+      },
     });
 
     if (!contract) {
@@ -106,14 +159,20 @@ export class ContractsService {
     if (dto.endDate) data.endDate = normalizeDate(dto.endDate);
 
     return this.prisma.contract.update({
-      where: { id, userId },
+      where: { id },
       data,
     });
   }
 
   async remove(userId: string, id: string) {
     const contract = await this.prisma.contract.findFirst({
-      where: { id, userId },
+      where: {
+        id,
+        OR: [
+          { userId },
+          { userId: null }
+        ]
+      },
     });
 
     if (!contract) {
@@ -121,7 +180,7 @@ export class ContractsService {
     }
 
     return this.prisma.contract.delete({
-      where: { id, userId },
+      where: { id },
     });
   }
 }
