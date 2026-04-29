@@ -6,6 +6,7 @@ import {
   CheckCircle2, 
   XCircle, 
   Clock,
+  AlertCircle,
   User,
   X,
   Edit2,
@@ -22,6 +23,9 @@ interface Contract {
   client: {
     name: string;
   };
+  billing: Array<{
+    status: string;
+  }>;
 }
 
 const Contracts: React.FC = () => {
@@ -137,6 +141,22 @@ const Contracts: React.FC = () => {
     }
   };
 
+  const getPaymentStatusBadge = (billings: any[]) => {
+    if (!billings || billings.length === 0) return <span className="text-gray-400 text-xs italic">Sem cobrança</span>;
+    
+    const status = billings[0].status; // Pega a primeira cobrança vinculada
+    switch (status) {
+      case 'PAGO':
+        return <span className="flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700"><CheckCircle2 size={14} /> <span>Pago</span></span>;
+      case 'ATRASADO':
+        return <span className="flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700"><AlertCircle size={14} /> <span>Atrasado</span></span>;
+      case 'PENDENTE':
+        return <span className="flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700"><Clock size={14} /> <span>Pendente</span></span>;
+      default:
+        return <span className="px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700">{status}</span>;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -162,7 +182,8 @@ const Contracts: React.FC = () => {
                 <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Valor</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Início</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Vencimento</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Aprovação</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Pagamento</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
@@ -181,6 +202,7 @@ const Contracts: React.FC = () => {
                   <td className="px-6 py-4 text-sm text-gray-700">{new Date(contract.startDate).toLocaleDateString()}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{contract.endDate ? new Date(contract.endDate).toLocaleDateString() : '-'}</td>
                   <td className="px-6 py-4">{getStatusBadge(contract.status)}</td>
+                  <td className="px-6 py-4">{getPaymentStatusBadge(contract.billing)}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-2">
                       <button 

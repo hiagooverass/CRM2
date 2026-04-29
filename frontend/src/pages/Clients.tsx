@@ -89,10 +89,17 @@ const Clients: React.FC = () => {
 
   const fetchClients = async () => {
     try {
+      console.log('[Frontend] Iniciando fetchClients...');
       const response = await api.get('/clients');
-      setClients(response.data);
+      console.log('[Frontend] Clientes recebidos:', response.data);
+      
+      if (Array.isArray(response.data)) {
+        setClients(response.data);
+      } else {
+        console.error('[Frontend] Resposta inválida do backend:', response.data);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('[Frontend] Erro ao buscar clientes:', err);
     } finally {
       setLoading(false);
     }
@@ -147,13 +154,14 @@ const Clients: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este cliente?')) {
+    if (window.confirm('Atenção: Excluir este cliente removerá permanentemente todos os seus contratos, cobranças e documentos vinculados. Deseja continuar?')) {
       try {
         await api.delete(`/clients/${id}`);
         fetchClients();
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        alert('Erro ao excluir cliente. Verifique se ele possui contratos ativos.');
+        const message = err.response?.data?.message || 'Erro ao excluir cliente.';
+        alert(message);
       }
     }
   };
@@ -161,6 +169,7 @@ const Clients: React.FC = () => {
   const handleCreateClient = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    console.log('[Frontend] Iniciando handleCreateClient com dados:', formData);
 
     // Combine address fields
     const fullAddress = [
@@ -180,15 +189,32 @@ const Clients: React.FC = () => {
 
     try {
       if (editingClient) {
-        await api.patch(`/clients/${editingClient.id}`, payload);
+        console.log('[Frontend] Atualizando cliente existente:', editingClient.id);
+        const response = await api.patch(`/clients/${editingClient.id}`, payload);
+        console.log('[Frontend] Cliente atualizado com sucesso:', response.data);
       } else {
-        await api.post('/clients', payload);
+        console.log('[Frontend] Criando novo cliente...');
+        const response = await api.post('/clients', payload);
+        const newClient = response.data;
+        console.log('[Frontend] Novo cliente criado:', newClient);
+        
+        // Adicionar o novo cliente diretamente no estado para feedback imediato
+        setClients(prev => {
+          const exists = prev.some(c => c.id === newClient.id);
+          if (exists) return prev;
+          return [newClient, ...prev];
+        });
       }
+      
       setIsModalOpen(false);
       setEditingClient(null);
       setFormData({ name: '', document: '', type: 'PF', email: '', phone: '', street: '', number: '', neighborhood: '', cep: '', address: '' });
-      fetchClients();
+      setSearchTerm('');
+      
+      console.log('[Frontend] Chamando fetchClients para sincronizar...');
+      await fetchClients(); 
     } catch (err: any) {
+      console.error('[Frontend] Erro ao salvar cliente:', err);
       setError(err.response?.data?.message || 'Erro ao salvar cliente. Verifique os dados.');
     }
   };
