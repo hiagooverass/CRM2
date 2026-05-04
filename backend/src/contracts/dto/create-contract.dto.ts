@@ -21,4 +21,9 @@ export class CreateContractDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
+
+  @ApiProperty({ example: 12 })
+  @IsOptional()
+  @IsNumber()
+  installments?: number;
 }

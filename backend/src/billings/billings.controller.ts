@@ -34,4 +34,10 @@ export class BillingsController {
   markAsPaid(@Request() req, @Param('id') id: string) {
     return this.billingsService.markAsPaid(req.user.id, id);
   }
+
+  @Patch(':id/revert')
+  @ApiOperation({ summary: 'Revert payment status' })
+  revertPayment(@Request() req, @Param('id') id: string) {
+    return this.billingsService.revertPayment(req.user.id, id);
+  }
 }

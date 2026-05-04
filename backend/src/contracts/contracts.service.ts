@@ -73,17 +73,26 @@ export class ContractsService {
         },
       });
 
-      // Automatically create a billing for the contract
-      await tx.billing.create({
-        data: {
-          userId,
-          clientId: dto.clientId,
-          contractId: contract.id,
-          amount: dto.value,
-          dueDate: dto.endDate ? normalizeDate(dto.endDate) : new Date(),
-          status: 'PENDENTE',
-        },
-      });
+      // Automatically create billings for the contract based on installments
+      const installmentsCount = dto.installments || 1;
+      const installmentAmount = dto.value / installmentsCount;
+      const startDate = dto.startDate ? normalizeDate(dto.startDate) : new Date();
+
+      for (let i = 0; i < installmentsCount; i++) {
+        const dueDate = new Date(startDate);
+        dueDate.setMonth(dueDate.getMonth() + i + 1); // Próximos meses
+
+        await tx.billing.create({
+          data: {
+            userId,
+            clientId: dto.clientId,
+            contractId: contract.id,
+            amount: installmentAmount,
+            dueDate: dueDate,
+            status: 'PENDENTE',
+          },
+        });
+      }
 
       return contract;
     });

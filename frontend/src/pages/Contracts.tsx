@@ -9,8 +9,11 @@ import {
   AlertCircle,
   User,
   X,
-  Edit2,
-  Trash2
+  Eye,
+  Trash2,
+  Calendar,
+  DollarSign,
+  Edit2
 } from 'lucide-react';
 
 interface Contract {
@@ -24,7 +27,11 @@ interface Contract {
     name: string;
   };
   billing: Array<{
+    id: string;
+    amount: number;
     status: string;
+    dueDate: string;
+    paidDate?: string;
   }>;
 }
 
@@ -34,10 +41,13 @@ const Contracts: React.FC = () => {
   const [clients, setClients] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
   const [formData, setFormData] = useState({
     clientId: '',
     value: '' as string | number,
+    installments: '1',
     startDate: today,
     endDate: ''
   });
@@ -51,11 +61,40 @@ const Contracts: React.FC = () => {
     try {
       const response = await api.get('/contracts');
       setContracts(response.data);
+      // Atualizar o contrato selecionado se o modal de detalhes estiver aberto
+      if (selectedContract) {
+        const updated = response.data.find((c: Contract) => c.id === selectedContract.id);
+        if (updated) setSelectedContract(updated);
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleTogglePayment = async (billingId: string, currentStatus: string) => {
+    const isPaying = currentStatus !== 'PAGO';
+    const action = isPaying ? 'marcar como PAGO' : 'ESTORNAR o pagamento para PENDENTE';
+    
+    if (window.confirm(`Deseja realmente ${action}?`)) {
+      try {
+        if (isPaying) {
+          await api.patch(`/billings/${billingId}/pay`);
+        } else {
+          await api.patch(`/billings/${billingId}/revert`);
+        }
+        await fetchContracts();
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao processar alteração de pagamento.');
+      }
+    }
+  };
+
+  const openDetailsModal = (contract: Contract) => {
+    setSelectedContract(contract);
+    setIsDetailsModalOpen(true);
   };
 
   const fetchClients = async () => {
@@ -72,6 +111,7 @@ const Contracts: React.FC = () => {
     setFormData({
       clientId: contract.clientId,
       value: contract.value,
+      installments: '1', // Default or fetch if available
       startDate: contract.startDate.split('T')[0],
       endDate: contract.endDate ? contract.endDate.split('T')[0] : ''
     });
@@ -108,12 +148,13 @@ const Contracts: React.FC = () => {
       } else {
         await api.post('/contracts', {
           ...formData,
-          value: val
+          value: val,
+          installments: Number(formData.installments)
         });
       }
       setIsModalOpen(false);
       setEditingContract(null);
-      setFormData({ clientId: '', value: '', startDate: new Date().toISOString().split('T')[0], endDate: '' });
+      setFormData({ clientId: '', value: '', installments: '1', startDate: new Date().toISOString().split('T')[0], endDate: '' });
       fetchContracts();
     } catch (err: any) {
       console.error(err);
@@ -124,7 +165,7 @@ const Contracts: React.FC = () => {
 
   const openNewContractModal = () => {
     setEditingContract(null);
-    setFormData({ clientId: '', value: '', startDate: new Date().toISOString().split('T')[0], endDate: '' });
+    setFormData({ clientId: '', value: '', installments: '1', startDate: new Date().toISOString().split('T')[0], endDate: '' });
     setIsModalOpen(true);
   };
 
@@ -206,8 +247,15 @@ const Contracts: React.FC = () => {
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-2">
                       <button 
-                        onClick={() => handleEdit(contract)}
+                        onClick={() => openDetailsModal(contract)}
                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Detalhes do Pagamento"
+                      >
+                        <Eye size={18} />
+                      </button>
+                      <button 
+                        onClick={() => handleEdit(contract)}
+                        className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
                         title="Editar"
                       >
                         <Edit2 size={18} />
@@ -272,7 +320,29 @@ const Contracts: React.FC = () => {
                   placeholder="0,00"
                 />
               </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Número de Parcelas</label>
+                <select
+                  required
+                  value={formData.installments}
+                  onChange={e => setFormData({...formData, installments: e.target.value})}
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 24, 48].map(n => {
+                    const monthlyValue = formData.value ? (Number(formData.value) / n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'R$ 0,00';
+                    return (
+                      <option key={n} value={n}>
+                        {n}x {n > 1 ? `de ${monthlyValue}` : `(À vista - ${monthlyValue})`}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
 
+
+              
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Data Início</label>
@@ -313,6 +383,106 @@ const Contracts: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes do Pagamento */}
+      {isDetailsModalOpen && selectedContract && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm overflow-auto">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden border border-gray-100">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Detalhes do Pagamento</h3>
+                <p className="text-sm text-gray-500">Contrato: {selectedContract.client.name} - R$ {selectedContract.value.toLocaleString()}</p>
+              </div>
+              <button onClick={() => setIsDetailsModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                  <p className="text-xs text-blue-600 font-bold uppercase mb-1">Total Pago</p>
+                  <p className="text-xl font-black text-blue-700">
+                    R$ {selectedContract.billing.filter(b => b.status === 'PAGO').reduce((acc, b) => acc + b.amount, 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                  <p className="text-xs text-amber-600 font-bold uppercase mb-1">Parcelas Pagas</p>
+                  <p className="text-xl font-black text-amber-700">
+                    {selectedContract.billing.filter(b => b.status === 'PAGO').length} / {selectedContract.billing.length}
+                  </p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+                  <p className="text-xs text-green-600 font-bold uppercase mb-1">Status Global</p>
+                  <div className="mt-1">{getStatusBadge(selectedContract.status)}</div>
+                </div>
+              </div>
+
+              <h4 className="font-bold text-gray-900 mb-3 flex items-center space-x-2">
+                <Calendar size={18} className="text-blue-600" />
+                <span>Cronograma de Parcelas</span>
+              </h4>
+
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 font-bold text-gray-600">Parcela</th>
+                      <th className="px-4 py-3 font-bold text-gray-600">Vencimento</th>
+                      <th className="px-4 py-3 font-bold text-gray-600">Valor</th>
+                      <th className="px-4 py-3 font-bold text-gray-600">Pagamento</th>
+                      <th className="px-4 py-3 font-bold text-gray-600">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {selectedContract.billing.map((b, idx) => (
+                      <tr key={b.id} className={b.status === 'PAGO' ? 'bg-green-50/30' : ''}>
+                        <td className="px-4 py-3 font-medium text-gray-900">{idx + 1}ª Parcela</td>
+                        <td className="px-4 py-3 text-gray-600">{new Date(b.dueDate).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 font-bold text-gray-900">R$ {b.amount.toLocaleString()}</td>
+                        <td className="px-4 py-3">
+                          {b.status === 'PAGO' ? (
+                            <div className="text-xs">
+                              <span className="text-green-600 font-bold block">PAGO</span>
+                              <span className="text-gray-400">{b.paidDate ? new Date(b.paidDate).toLocaleString() : '-'}</span>
+                            </div>
+                          ) : (
+                            <span className={`text-xs font-bold ${b.status === 'ATRASADO' ? 'text-red-600' : 'text-amber-600'}`}>
+                              {b.status}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleTogglePayment(b.id, b.status)}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              b.status === 'PAGO' 
+                                ? 'text-red-600 hover:bg-red-100' 
+                                : 'text-green-600 hover:bg-green-100'
+                            }`}
+                            title={b.status === 'PAGO' ? 'Estornar Pagamento' : 'Marcar como Pago'}
+                          >
+                            <DollarSign size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setIsDetailsModalOpen(false)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors font-bold shadow-sm"
+              >
+                Fechar Detalhes
+              </button>
+            </div>
           </div>
         </div>
       )}

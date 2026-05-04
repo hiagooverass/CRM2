@@ -148,7 +148,7 @@ export class ClientsService {
 
   private calculateInitialScore(dto: CreateClientDto) {
     // Mock logic for score
-    let score = Math.floor(Math.random() * 101); // 0-100
+    let score = Math.floor(50); // 0-100
     let motivos = [];
 
     if (score < 30) {

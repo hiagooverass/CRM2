@@ -44,10 +44,20 @@ export class BillingsService {
 
   async markAsPaid(userId: string, id: string) {
     return this.prisma.billing.update({
-      where: { id, userId },
+      where: { id },
       data: {
         status: 'PAGO',
         paidDate: new Date(),
+      },
+    });
+  }
+
+  async revertPayment(userId: string, id: string) {
+    return this.prisma.billing.update({
+      where: { id },
+      data: {
+        status: 'PENDENTE',
+        paidDate: null,
       },
     });
   }
