@@ -44,9 +44,10 @@ const Billings: React.FC = () => {
       try {
         await api.patch(`/billings/${id}/pay`);
         fetchBillings();
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        alert('Erro ao processar pagamento.');
+        const message = err.response?.data?.message || 'Erro ao processar pagamento.';
+        alert(message);
       }
     }
   };

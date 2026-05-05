@@ -85,9 +85,10 @@ const Contracts: React.FC = () => {
           await api.patch(`/billings/${billingId}/revert`);
         }
         await fetchContracts();
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        alert('Erro ao processar alteração de pagamento.');
+        const message = err.response?.data?.message || 'Erro ao processar alteração de pagamento.';
+        alert(message);
       }
     }
   };
@@ -138,7 +139,10 @@ const Contracts: React.FC = () => {
       alert('O valor máximo permitido é de R$ 50.000.000,00 (50 milhões)');
       return;
     }
-
+    if (val <= 0) {
+      alert('O valor do contrato deve ser maior que 0');
+      return;
+    }
     try {
       if (editingContract) {
         await api.patch(`/contracts/${editingContract.id}`, {
@@ -310,9 +314,6 @@ const Contracts: React.FC = () => {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Valor do Contrato (R$)</label>
                 <input
-                  required
-                  type="number"
-                  step="0.01"
                   max="50000000"
                   value={formData.value}
                   onChange={e => setFormData({...formData, value: e.target.value})}

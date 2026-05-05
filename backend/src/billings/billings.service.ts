@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBillingDto } from './dto/create-billing.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -43,6 +43,36 @@ export class BillingsService {
   }
 
   async markAsPaid(userId: string, id: string) {
+    // 1. Buscar a cobrança atual para saber o contrato e a data de vencimento
+    const currentBilling = await this.prisma.billing.findUnique({
+      where: { id },
+      include: { contract: true },
+    });
+
+    if (!currentBilling) {
+      throw new NotFoundException('Cobrança não encontrada');
+    }
+
+    // 2. Se a cobrança estiver vinculada a um contrato, verificar parcelas anteriores
+    if (currentBilling.contractId) {
+      const previousPending = await this.prisma.billing.findFirst({
+        where: {
+          contractId: currentBilling.contractId,
+          status: { not: 'PAGO' },
+          dueDate: {
+            lt: currentBilling.dueDate,
+          },
+        },
+        orderBy: { dueDate: 'asc' },
+      });
+
+      if (previousPending) {
+        throw new BadRequestException(
+          `Não é possível pagar esta parcela pois existem parcelas anteriores pendentes (Vencimento: ${previousPending.dueDate.toLocaleDateString()}).`
+        );
+      }
+    }
+
     return this.prisma.billing.update({
       where: { id },
       data: {

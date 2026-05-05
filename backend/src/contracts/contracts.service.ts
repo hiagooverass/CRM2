@@ -188,8 +188,17 @@ export class ContractsService {
       throw new NotFoundException('Contrato não encontrado');
     }
 
-    return this.prisma.contract.delete({
-      where: { id },
+    // Usar transação para deletar cobranças e depois o contrato
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Deletar todas as cobranças vinculadas a este contrato
+      await tx.billing.deleteMany({
+        where: { contractId: id },
+      });
+
+      // 2. Deletar o contrato
+      return tx.contract.delete({
+        where: { id },
+      });
     });
   }
 }
