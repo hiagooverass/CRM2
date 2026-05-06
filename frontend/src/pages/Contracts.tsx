@@ -390,8 +390,8 @@ const Contracts: React.FC = () => {
 
       {/* Modal de Detalhes do Pagamento */}
       {isDetailsModalOpen && selectedContract && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm overflow-auto">
-          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden border border-gray-100">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden border border-gray-100 max-h-screen flex flex-col">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">Detalhes do Pagamento</h3>
@@ -402,7 +402,7 @@ const Contracts: React.FC = () => {
               </button>
             </div>
             
-            <div className="p-6">
+            <div className="p-6 flex-1 overflow-auto">
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                   <p className="text-xs text-blue-600 font-bold uppercase mb-1">Total Pago</p>

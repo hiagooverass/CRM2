@@ -55,12 +55,16 @@ export class BillingsService {
 
     // 2. Se a cobrança estiver vinculada a um contrato, verificar parcelas anteriores
     if (currentBilling.contractId) {
+      // Usar a data exata da cobrança atual para a comparação
+      const currentDueDate = currentBilling.dueDate;
+
       const previousPending = await this.prisma.billing.findFirst({
         where: {
           contractId: currentBilling.contractId,
           status: { not: 'PAGO' },
+          id: { not: id }, // Garantir que não está comparando com ela mesma
           dueDate: {
-            lt: currentBilling.dueDate,
+            lt: currentDueDate,
           },
         },
         orderBy: { dueDate: 'asc' },
@@ -68,7 +72,7 @@ export class BillingsService {
 
       if (previousPending) {
         throw new BadRequestException(
-          `Não é possível pagar esta parcela pois existem parcelas anteriores pendentes (Vencimento: ${previousPending.dueDate.toLocaleDateString()}).`
+          `Não é possível pagar esta parcela pois existem parcelas anteriores pendentes (Vencimento: ${previousPending.dueDate.toLocaleDateString('pt-BR')}).`
         );
       }
     }
