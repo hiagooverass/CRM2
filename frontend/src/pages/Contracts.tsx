@@ -16,6 +16,8 @@ import {
   Edit2
 } from 'lucide-react';
 
+import { useAuth } from '../context/AuthContext';
+
 interface Contract {
   id: string;
   clientId: string;
@@ -36,6 +38,8 @@ interface Contract {
 }
 
 const Contracts: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const today = new Date().toISOString().split('T')[0];
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [clients, setClients] = useState<{id: string, name: string}[]>([]);
@@ -209,13 +213,15 @@ const Contracts: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900">Gestão de Contratos</h2>
           <p className="text-gray-500">Contratos de crédito e status de aprovação.</p>
         </div>
-        <button 
-          onClick={openNewContractModal}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors font-bold shadow-sm"
-        >
-          <Plus size={20} />
-          <span>Novo Contrato</span>
-        </button>
+        {isAdmin && (
+          <button 
+            onClick={openNewContractModal}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors font-bold shadow-sm"
+          >
+            <Plus size={20} />
+            <span>Novo Contrato</span>
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -257,20 +263,24 @@ const Contracts: React.FC = () => {
                       >
                         <Eye size={18} />
                       </button>
-                      <button 
-                        onClick={() => handleEdit(contract)}
-                        className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                        title="Editar"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(contract.id)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Excluir"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      {isAdmin && (
+                        <>
+                          <button 
+                            onClick={() => handleEdit(contract)}
+                            className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                            title="Editar"
+                          >
+                            <Edit2 size={18} />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(contract.id)}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Excluir"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -439,7 +449,9 @@ const Contracts: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {selectedContract.billing.map((b, idx) => (
+                    {[...selectedContract.billing]
+                      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+                      .map((b, idx) => (
                       <tr key={b.id} className={b.status === 'PAGO' ? 'bg-green-50/30' : ''}>
                         <td className="px-4 py-3 font-medium text-gray-900">{idx + 1}ª Parcela</td>
                         <td className="px-4 py-3 text-gray-600">{new Date(b.dueDate).toLocaleDateString()}</td>
@@ -457,17 +469,19 @@ const Contracts: React.FC = () => {
                           )}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => handleTogglePayment(b.id, b.status)}
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              b.status === 'PAGO' 
-                                ? 'text-red-600 hover:bg-red-100' 
-                                : 'text-green-600 hover:bg-green-100'
-                            }`}
-                            title={b.status === 'PAGO' ? 'Estornar Pagamento' : 'Marcar como Pago'}
-                          >
-                            <DollarSign size={18} />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleTogglePayment(b.id, b.status)}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                b.status === 'PAGO' 
+                                  ? 'text-red-600 hover:bg-red-100' 
+                                  : 'text-green-600 hover:bg-green-100'
+                              }`}
+                              title={b.status === 'PAGO' ? 'Estornar Pagamento' : 'Marcar como Pago'}
+                            >
+                              <DollarSign size={18} />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

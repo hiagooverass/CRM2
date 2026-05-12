@@ -36,6 +36,41 @@ export class CreateClientDto {
   @IsString()
   address?: string;
 
+  @ApiProperty({ example: '01001-000' })
+  @IsOptional()
+  @IsString()
+  cep?: string;
+
+  @ApiProperty({ example: 'Rua Exemplo' })
+  @IsOptional()
+  @IsString()
+  street?: string;
+
+  @ApiProperty({ example: '123' })
+  @IsOptional()
+  @IsString()
+  number?: string;
+
+  @ApiProperty({ example: 'Bairro' })
+  @IsOptional()
+  @IsString()
+  neighborhood?: string;
+
+  @ApiProperty({ example: 'São Paulo' })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiProperty({ example: 'SP' })
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @ApiProperty({ example: 'password123' })
+  @IsOptional()
+  @IsString()
+  password?: string;
+
   // PF fields
   @ApiProperty({ example: '1990-01-01' })
   @IsOptional()

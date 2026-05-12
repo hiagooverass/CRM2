@@ -2,16 +2,19 @@ import { Controller, Get, Post, Body, Param, Patch, UseGuards, Request } from '@
 import { BillingsService } from './billings.service';
 import { CreateBillingDto } from './dto/create-billing.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('billings')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('billings')
 export class BillingsController {
   constructor(private readonly billingsService: BillingsService) {}
 
   @Post()
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Create a new billing' })
   create(@Request() req, @Body() createBillingDto: CreateBillingDto) {
     return this.billingsService.create(req.user.id, createBillingDto);
@@ -30,12 +33,14 @@ export class BillingsController {
   }
 
   @Patch(':id/pay')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Mark billing as paid' })
   markAsPaid(@Request() req, @Param('id') id: string) {
     return this.billingsService.markAsPaid(req.user.id, id);
   }
 
   @Patch(':id/revert')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Revert payment status' })
   revertPayment(@Request() req, @Param('id') id: string) {
     return this.billingsService.revertPayment(req.user.id, id);

@@ -2,16 +2,19 @@ import { Controller, Get, Post, Body, Param, Patch, Delete, UseGuards, Request }
 import { ContractsService } from './contracts.service';
 import { CreateContractDto } from './dto/create-contract.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('contracts')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('contracts')
 export class ContractsController {
   constructor(private readonly contractsService: ContractsService) {}
 
   @Post()
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Create a new contract' })
   create(@Request() req, @Body() createContractDto: CreateContractDto) {
     return this.contractsService.create(req.user.id, createContractDto);
@@ -30,18 +33,21 @@ export class ContractsController {
   }
 
   @Patch(':id/status')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Update contract status' })
   updateStatus(@Request() req, @Param('id') id: string, @Body('status') status: string) {
     return this.contractsService.updateStatus(req.user.id, id, status);
   }
 
   @Patch(':id')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Update contract' })
   update(@Request() req, @Param('id') id: string, @Body() updateContractDto: Partial<CreateContractDto>) {
     return this.contractsService.update(req.user.id, id, updateContractDto);
   }
 
   @Delete(':id')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Delete contract' })
   remove(@Request() req, @Param('id') id: string) {
     return this.contractsService.remove(req.user.id, id);

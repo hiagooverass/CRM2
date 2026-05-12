@@ -99,7 +99,26 @@ export class ContractsService {
   }
 
   async findAll(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (user?.role === 'ADMIN') {
+      // Para o Administrador, mostramos absolutamente todos os contratos do banco
+      return this.prisma.contract.findMany({
+        include: { 
+          client: true,
+          billing: true
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+    }
+
+    // Se for USER (Cliente), busca contratos onde ele é o cliente (pelo documento)
     return this.prisma.contract.findMany({
+      where: {
+        client: {
+          document: user?.document || '---'
+        }
+      },
       include: { 
         client: true,
         billing: true
@@ -109,13 +128,27 @@ export class ContractsService {
   }
 
   async findOne(userId: string, id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (user?.role === 'ADMIN') {
+      return this.prisma.contract.findFirst({
+        where: {
+          id,
+          OR: [
+            { userId },
+            { userId: null }
+          ]
+        },
+        include: { client: true, billing: true },
+      });
+    }
+
     return this.prisma.contract.findFirst({
       where: {
         id,
-        OR: [
-          { userId },
-          { userId: null }
-        ]
+        client: {
+          document: user?.document || '---'
+        }
       },
       include: { client: true, billing: true },
     });

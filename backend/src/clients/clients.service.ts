@@ -4,6 +4,7 @@ import { CreateClientDto, ClientType } from './dto/create-client.dto';
 import { cpf, cnpj } from 'cpf-cnpj-validator';
 import axios from 'axios';
 import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class ClientsService {
@@ -40,11 +41,40 @@ export class ClientsService {
         });
       }
       
-      if (existing.userId === userId) {
-        throw new ConflictException('Você já possui um cliente cadastrado com este documento');
-      } else {
-        throw new ConflictException('Este documento já está cadastrado por outro usuário');
-      }
+      // Como o site é para uma única empresa, se o cliente já existe em qualquer lugar, 
+      // o Admin pode simplesmente "reativá-lo" ou o sistema pode apenas retornar o existente.
+      // Vamos permitir que o Admin veja e gerencie esse cliente.
+      return existing;
+    }
+
+    // 2.1 Verificar se existe um usuário com este documento e criar um se não existir
+    let userForClient = await this.prisma.user.findUnique({
+      where: { document: dto.document },
+    });
+
+    if (!userForClient) {
+      console.log(`[ClientsService] Criando usuário automático para documento: ${dto.document}`);
+      const hashedPassword = await bcrypt.hash('senha123', 10);
+      userForClient = await this.prisma.user.create({
+        data: {
+          email: dto.email || `${dto.document.replace(/\D/g, '')}@sistema.com`,
+          password: hashedPassword,
+          name: dto.name,
+          document: dto.document,
+          phone: dto.phone,
+          cep: dto.cep,
+          street: dto.street,
+          number: dto.number,
+          neighborhood: dto.neighborhood,
+          city: dto.city,
+          state: dto.state,
+          role: 'USER',
+        },
+      });
+    } else {
+      // Se o usuário já existe mas não tem um registro de Client vinculado a ele (raro com a nova lógica)
+      // nós usamos esse userId para o novo cliente.
+      console.log(`[ClientsService] Usuário já existe, vinculando ao novo cliente.`);
     }
 
     let extraData = {};
@@ -61,7 +91,7 @@ export class ClientsService {
     const { street, number, neighborhood, cep, ...cleanedExtraData } = extraData as any;
     
     const cleanedDto = Object.fromEntries(
-      Object.entries(dto).filter(([k, v]) => k !== 'userId' && v !== '' && v !== null && v !== undefined)
+      Object.entries(dto).filter(([k, v]) => k !== 'userId' && k !== 'password' && v !== '' && v !== null && v !== undefined)
     );
 
     const createData = {
@@ -146,6 +176,37 @@ export class ClientsService {
     return this.fetchCNPJData(cnpj);
   }
 
+  async findByDocument(document: string) {
+    // Busca tanto na tabela Client quanto na tabela User
+    const client = await this.prisma.client.findFirst({
+      where: { document },
+    });
+
+    if (client) return client;
+
+    const user = await this.prisma.user.findUnique({
+      where: { document },
+    });
+
+    if (user) {
+      // Retorna no formato de cliente para o frontend
+      return {
+        name: user.name,
+        email: user.email,
+        document: user.document,
+        phone: user.phone,
+        cep: user.cep,
+        street: user.street,
+        number: user.number,
+        neighborhood: user.neighborhood,
+        city: user.city,
+        state: user.state,
+      };
+    }
+
+    return null;
+  }
+
   private calculateInitialScore(dto: CreateClientDto) {
     // Mock logic for score
     let score = Math.floor(50); // 0-100
@@ -163,7 +224,24 @@ export class ClientsService {
   }
 
   async findAll(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (user?.role === 'ADMIN') {
+      // Para o Administrador, mostramos absolutamente todos os clientes do banco
+      return this.prisma.client.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: {
+          contract: true,
+          billing: true,
+        },
+      });
+    }
+
+    // Se for USER (Cliente), ele vê apenas o seu próprio perfil de cliente
     return this.prisma.client.findMany({
+      where: {
+        document: user?.document || '---'
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         contract: true,
@@ -173,19 +251,35 @@ export class ClientsService {
   }
 
   async findOne(userId: string, id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (user?.role === 'ADMIN') {
+      return this.prisma.client.findFirst({
+        where: {
+          id,
+          OR: [
+            { userId },
+            { userId: null }
+          ]
+        },
+        include: {
+          contract: true,
+          billing: true,
+          documents: true,
+        }
+      });
+    }
+
     return this.prisma.client.findFirst({
       where: {
         id,
-        OR: [
-          { userId },
-          { userId: null }
-        ]
+        document: user?.document || '---'
       },
       include: {
         contract: true,
         billing: true,
         documents: true,
-      },
+      }
     });
   }
 

@@ -52,11 +52,46 @@ const Clients: React.FC = () => {
     fetchClients();
   }, []);
 
-  // Auto-fetch CNPJ
+  // Auto-fill existing user/client
+  useEffect(() => {
+    const checkExisting = async () => {
+      const cleanDoc = formData.document.replace(/\D/g, '');
+      // Só busca se for um documento completo (11 para CPF ou 14 para CNPJ) e não estiver editando
+      if ((cleanDoc.length === 11 || cleanDoc.length === 14) && !editingClient) {
+        try {
+          const response = await api.get(`/clients/check/${formData.document}`);
+          const data = response.data;
+          
+          if (data) {
+            setFormData(prev => ({
+              ...prev,
+              name: data.name || prev.name,
+              email: data.email || prev.email,
+              phone: data.phone || prev.phone,
+              street: data.street || prev.street,
+              number: data.number || prev.number,
+              neighborhood: data.neighborhood || prev.neighborhood,
+              cep: data.cep || prev.cep,
+              address: data.address || prev.address,
+              type: data.type || (cleanDoc.length === 11 ? 'PF' : 'PJ')
+            }));
+          }
+        } catch (err) {
+          console.error('Erro ao verificar documento existente:', err);
+        }
+      }
+    };
+
+    const timer = setTimeout(checkExisting, 500);
+    return () => clearTimeout(timer);
+  }, [formData.document, editingClient]);
+
+  // Auto-fetch CNPJ (somente se não encontrou dados no checkExisting)
   useEffect(() => {
     const fetchCNPJ = async () => {
       const cleanCNPJ = formData.document.replace(/\D/g, '');
-      if (formData.type === 'PJ' && cleanCNPJ.length === 14 && !editingClient) {
+      // Só busca se for CNPJ, tiver 14 dígitos, não estiver editando e o nome ainda estiver vazio
+      if (formData.type === 'PJ' && cleanCNPJ.length === 14 && !editingClient && !formData.name) {
         setIsFetchingCNPJ(true);
         try {
           const response = await api.get(`/clients/cnpj/${cleanCNPJ}`);
@@ -347,7 +382,7 @@ const Clients: React.FC = () => {
       {/* Modal Novo/Editar Cliente */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-gray-100">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-gray-100 max-h-screen flex flex-col justify-between">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <h3 className="text-xl font-bold text-gray-900">
                 {editingClient ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}
@@ -357,7 +392,7 @@ const Clients: React.FC = () => {
               </button>
             </div>
             
-            <form onSubmit={handleCreateClient} className="p-6 space-y-4">
+            <form onSubmit={handleCreateClient} className="p-6 space-y-4 overflow-y-auto flex-1">
               {error && (
                 <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-100 font-medium">
                   {error}
@@ -415,6 +450,16 @@ const Clients: React.FC = () => {
                   />
                 </div>
 
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Senha</label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={e => setFormData({...formData, password: e.target.value})}
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                    placeholder="123456"
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Telefone</label>
                   <input

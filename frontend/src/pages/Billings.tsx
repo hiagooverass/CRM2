@@ -9,6 +9,8 @@ import {
   RotateCcw
 } from 'lucide-react';
 
+import { useAuth } from '../context/AuthContext';
+
 interface Billing {
   id: string;
   amount: number;
@@ -21,6 +23,8 @@ interface Billing {
 }
 
 const Billings: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [billings, setBillings] = useState<Billing[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -93,7 +97,7 @@ const Billings: React.FC = () => {
                 <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Valor</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Vencimento</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Ações</th>
+                {isAdmin && <th className="px-6 py-4 text-xs font-bold text-gray-600 uppercase tracking-wider">Ações</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -112,28 +116,30 @@ const Billings: React.FC = () => {
                   <td className="px-6 py-4 text-sm font-bold text-gray-900 italic">R$ {billing.amount.toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm text-gray-700">{new Date(billing.dueDate).toLocaleDateString()}</td>
                   <td className="px-6 py-4">{getStatusBadge(billing.status)}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-2">
-                      {billing.status !== 'PAGO' ? (
-                        <button
-                          onClick={() => handlePay(billing.id)}
-                          className="text-green-600 hover:text-green-800 text-sm font-bold flex items-center space-x-1 p-2 hover:bg-green-50 rounded-lg transition-colors"
-                        >
-                          <DollarSign size={16} />
-                          <span>Marcar Pago</span>
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleRevert(billing.id)}
-                          className="text-red-600 hover:text-red-800 text-sm font-bold flex items-center space-x-1 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Estornar Pagamento"
-                        >
-                          <RotateCcw size={16} />
-                          <span>Estornar</span>
-                        </button>
-                      )}
-                    </div>
-                  </td>
+                  {isAdmin && (
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-2">
+                        {billing.status !== 'PAGO' ? (
+                          <button
+                            onClick={() => handlePay(billing.id)}
+                            className="text-green-600 hover:text-green-800 text-sm font-bold flex items-center space-x-1 p-2 hover:bg-green-50 rounded-lg transition-colors"
+                          >
+                            <DollarSign size={16} />
+                            <span>Marcar Pago</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleRevert(billing.id)}
+                            className="text-red-600 hover:text-red-800 text-sm font-bold flex items-center space-x-1 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Estornar Pagamento"
+                          >
+                            <RotateCcw size={16} />
+                            <span>Estornar</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

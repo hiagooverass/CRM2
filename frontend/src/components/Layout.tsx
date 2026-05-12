@@ -61,12 +61,17 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
   };
 
-  const navItems = [
-    { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
-    { label: 'Clientes', icon: Users, path: '/clients' },
-    { label: 'Contratos', icon: FileText, path: '/contracts' },
-    { label: 'Cobranças', icon: CreditCard, path: '/billings' },
-  ];
+  const navItems = user?.role === 'ADMIN' 
+    ? [
+        { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
+        { label: 'Clientes', icon: Users, path: '/clients' },
+        { label: 'Contratos', icon: FileText, path: '/contracts' },
+        { label: 'Cobranças', icon: CreditCard, path: '/billings' },
+      ]
+    : [
+        { label: 'Contratos', icon: FileText, path: '/contracts' },
+        { label: 'Cobranças', icon: CreditCard, path: '/billings' },
+      ];
 
   return (
     <div className="min-h-screen bg-gray-50 flex">

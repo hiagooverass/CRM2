@@ -12,11 +12,18 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({
+    const existingEmail = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
-    if (existing) {
+    if (existingEmail) {
       throw new ConflictException('Email already registered');
+    }
+
+    const existingDoc = await this.prisma.user.findUnique({
+      where: { document: dto.document },
+    });
+    if (existingDoc) {
+      throw new ConflictException('Document already registered');
     }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
@@ -25,6 +32,28 @@ export class AuthService {
         email: dto.email,
         password: hashedPassword,
         name: dto.name,
+        document: dto.document,
+        phone: dto.phone,
+        cep: dto.cep,
+        street: dto.street,
+        number: dto.number,
+        neighborhood: dto.neighborhood,
+        city: dto.city,
+        state: dto.state,
+        role: 'USER',
+      },
+    });
+
+    // Criar automaticamente um registro de cliente para este usuário
+    await this.prisma.client.create({
+      data: {
+        type: dto.document.replace(/\D/g, '').length === 11 ? 'PF' : 'PJ',
+        name: dto.name,
+        document: dto.document,
+        email: dto.email,
+        phone: dto.phone,
+        address: dto.street ? `${dto.street}, ${dto.number || 'S/N'}` : null,
+        userId: user.id, // Vincula o cliente ao usuário recém-criado
       },
     });
 
@@ -32,8 +61,14 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
+    // Busca por email ou documento
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: dto.identifier },
+          { document: dto.identifier },
+        ],
+      },
     });
 
     if (!user || !(await bcrypt.compare(dto.password, user.password))) {
